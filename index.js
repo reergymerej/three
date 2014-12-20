@@ -21,7 +21,42 @@ var m3 = new THREE.Matrix4();
 (function () {
   var size = 0.8;
   var geometry = new THREE.BoxGeometry(size, size, size);
-  var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+
+
+  // apply colors to boxes
+  (function () {
+    var colors = [
+      // red
+      new THREE.Color(1, 0, 0),
+      // orange
+      new THREE.Color(1, 0.5, 0),
+      // white
+      new THREE.Color(1, 1, 1),
+      // yellow
+      new THREE.Color(0xffff00),
+      // green
+      new THREE.Color(0x29dd00),
+      // blue
+      new THREE.Color(0, 0, 1)
+    ];
+
+
+    var i = 0;
+    var max = geometry.faces.length / 2;
+
+    for (; i < max; i++) {
+      geometry.faces[i * 2].color = colors[i];
+      geometry.faces[i * 2 + 1].color = colors[i];
+    }
+
+  }());
+
+  var material = new THREE.MeshBasicMaterial({
+    // wireframe: true,
+    vertexColors: THREE.VertexColors
+  });
+
+
   
   var makeItem = function (x, y, z) {
     var item = new THREE.Mesh(geometry, material);
@@ -34,7 +69,7 @@ var m3 = new THREE.Matrix4();
   };
 
   var x, y, z;
-  var spacing = size * 2.5;
+  var spacing = size * 1.2;
   var max = 3;
 
   for (x = 0; x < max; x++) {
@@ -53,7 +88,7 @@ var m3 = new THREE.Matrix4();
 
 
 // camera.position.y = 3;
-camera.position.z = 20;
+camera.position.z = 10;
 // camera.lookAt(0, 0, 0);
 
 
