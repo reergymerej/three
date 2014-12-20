@@ -13,9 +13,14 @@ var cameraSpeed = {
   z: 0
 };
 
+var m1 = new THREE.Matrix4();
+var m2 = new THREE.Matrix4();
+var m3 = new THREE.Matrix4();
+
 // make some items
 (function () {
-  var geometry = new THREE.BoxGeometry( 0.8, 0.8, 0.8 );
+  var size = 0.8;
+  var geometry = new THREE.BoxGeometry(size, size, size);
   var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
   
   var makeItem = function (x, y, z) {
@@ -29,23 +34,26 @@ var cameraSpeed = {
   };
 
   var x, y, z;
-  var spacing = 4;
+  var spacing = size * 2.5;
   var max = 3;
 
   for (x = 0; x < max; x++) {
     for(y = 0; y < max; y++) {
       for(z = 0; z < max; z++) {
-        makeItem(x * spacing, y * spacing, z * spacing);
+        makeItem(
+          Math.ceil(x / 2) * spacing * ((x % 2 === 0) ? 1 : -1),
+          Math.ceil(y / 2) * spacing * ((y % 2 === 0) ? 1 : -1),
+          Math.ceil(z / 2) * spacing * ((z % 2 === 0) ? 1 : -1)
+        );
       }  
     }  
   }
-
 }());
 
 
 
-camera.position.y = 3;
-camera.position.z = 18;
+// camera.position.y = 3;
+camera.position.z = 20;
 // camera.lookAt(0, 0, 0);
 
 
@@ -53,12 +61,14 @@ function render() {
   requestAnimationFrame(render);
   renderer.render(scene, camera);
 
-  matrix.makeRotationX(cameraSpeed.x);
+  m1.makeRotationX(cameraSpeed.x);
+  m2.makeRotationY(cameraSpeed.y);
+  // m3.makeRotationZ(cameraSpeed.z);
+
+  matrix.multiplyMatrices(m1, m2);
+  // matrix.multiply(m3);
+
   camera.applyMatrix(matrix);
-  matrix.makeRotationY(cameraSpeed.y);
-  camera.applyMatrix(matrix);
-  // matrix.makeRotationZ(cameraSpeed.z);
-  // camera.applyMatrix(matrix);
 }
 render();
 
@@ -97,6 +107,5 @@ $('body').on('keydown', function (e) {
   if (axis && direction) {
     speed = cameraSpeed.rate * direction;
     cameraSpeed[axis] += speed;
-    console.log(axis, direction, speed);
   }
 });
