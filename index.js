@@ -17,6 +17,50 @@ var m1 = new THREE.Matrix4();
 var m2 = new THREE.Matrix4();
 var m3 = new THREE.Matrix4();
 
+var isEven = function (x) {
+  return x % 2 === 0;
+};
+
+/**
+* Get the G series number at index i.
+* @param {Number} i
+* @return {Number}
+*/
+var indexToG = function (i) {
+  var g = 0;
+
+  if (i > 0) {
+    g = Math.floor(i / 2);
+
+    if (isEven(i)) {
+      g *= -1;
+    } else {
+      g += 1;
+    }
+  }
+
+  return g;
+};
+
+/**
+* Get the index of a number in the G series.
+* @param {Number} g
+* @return {Number}
+*/
+var gToIndex = function (g) {
+  var i = 0;
+
+  if (g !== 0) {
+    if (g < 0) {
+      i = Math.abs(g + g);
+    } else {
+      i = g * 2 - 1;
+    }
+  }
+
+  return i;
+};
+
 // make the cubes
 var cubes = (function () {
   var size = 0.8;
@@ -54,14 +98,22 @@ var cubes = (function () {
 
   var cubes = [];
   
-  var makeItem = function (x, y, z) {
+  var makeItem = function (gx, gy, gz) {
     var item = new THREE.Mesh(geometry, material);
+
+    var x = gx * spacing;
+    var y = gy * spacing;
+    var z = gz * spacing;
+
+    item.cubeInfo = {
+      gx: gx,
+      gy: gy,
+      gz: gz
+    };
 
     item.position.x = x;
     item.position.y = y;
     item.position.z = z;
-
-    item.cubeInfo = [x, y, z];
 
     scene.add(item);
 
@@ -71,17 +123,21 @@ var cubes = (function () {
   var x, y, z;
   var spacing = size * 1.2;
   var CUBES_PER_AXIS = 3;
+  var gx, gy, gz;
 
   applyColorsToGeometry(geometry);
 
+
   for (x = 0; x < CUBES_PER_AXIS; x++) {
+    gx = indexToG(x);
+    
     for(y = 0; y < CUBES_PER_AXIS; y++) {
+      gy = indexToG(y);
+      
       for(z = 0; z < CUBES_PER_AXIS; z++) {
-        makeItem(
-          Math.ceil(x / 2) * spacing * ((x % 2 === 0) ? 1 : -1),
-          Math.ceil(y / 2) * spacing * ((y % 2 === 0) ? 1 : -1),
-          Math.ceil(z / 2) * spacing * ((z % 2 === 0) ? 1 : -1)
-        );
+        gz = indexToG(z);
+
+        makeItem(gx, gy, gz);
       }  
     }  
   }
@@ -90,14 +146,14 @@ var cubes = (function () {
 }());
 
 
-var Plane = function (cubes) {
+var Plane = function (cubes, rotationAxis) {
   this.cubes = cubes;
+  this.rotationAxis = rotationAxis;
 };
 
 Plane.prototype.info = function () {
   var cubeInfo = [];
   this.cubes.forEach(function (cube) {
-    // cubes.push(cube.cubeInfo.join(','));
     cubeInfo.push(cubes.indexOf(cube));
   });
   console.log(cubeInfo);
@@ -114,24 +170,92 @@ Plane.prototype.rotate = function (amount, counter) {
       amount *= -1;
     }
 
-    matrix.makeRotationZ(amount);
+    switch (this.rotationAxis) {
+      case 'x':
+        matrix.makeRotationX(amount);
+        break;
+      case 'y':
+        matrix.makeRotationY(amount);
+        break;
+      case 'z':
+        matrix.makeRotationZ(amount);
+        break;
+    }
+
     this.cubes.forEach(function (cube) {
       cube.applyMatrix(matrix);
     });
 };
 
 var getPlane = function (x, y, z) {
-  return new Plane([
-    cubes[1],
-    cubes[4],
-    cubes[7],
-    cubes[10],
-    cubes[13],
-    cubes[16],
-    cubes[19],
-    cubes[22],
-    cubes[25]
-  ]);
+  var planeCubes;
+  var rotationAxis;
+
+  if (typeof x === 'string') {
+    switch (x) {
+      case 'or':
+        planeCubes = [
+          cubes[1],
+          cubes[4],
+          cubes[7],
+          cubes[10],
+          cubes[13],
+          cubes[16],
+          cubes[19],
+          cubes[22],
+          cubes[25]
+        ];
+        rotationAxis = 'z';
+        break;
+
+      case 'r':
+        planeCubes = [
+          cubes[2],
+          cubes[5],
+          cubes[8],
+          cubes[11],
+          cubes[14],
+          cubes[17],
+          cubes[20],
+          cubes[23],
+          cubes[26]
+        ];
+        rotationAxis = 'z';
+        break;
+
+      case 'b':
+        planeCubes = [
+          cubes[18],
+          cubes[19],
+          cubes[20],
+          cubes[21],
+          cubes[22],
+          cubes[23],
+          cubes[24],
+          cubes[25],
+          cubes[26]
+        ];
+        rotationAxis = 'x';
+        break;
+
+      case 'g':
+        planeCubes = [
+          cubes[9],
+          cubes[10],
+          cubes[11],
+          cubes[12],
+          cubes[13],
+          cubes[14],
+          cubes[15],
+          cubes[16],
+          cubes[17]
+        ];
+        rotationAxis = 'x';
+        break;     
+    }
+  }
+
+  return new Plane(planeCubes, rotationAxis);
 };
 
 camera.position.z = 5;
@@ -151,8 +275,6 @@ function render() {
   camera.applyMatrix(matrix);
 }
 render();
-
-
 
 
 
