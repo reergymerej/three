@@ -62,6 +62,7 @@ var gToIndex = function (g) {
 };
 
 // make the cubes
+var CUBES_PER_AXIS = 3;
 var cubes = (function () {
   var size = 0.8;
   var geometry = new THREE.BoxGeometry(size, size, size);
@@ -122,7 +123,6 @@ var cubes = (function () {
 
   var x, y, z;
   var spacing = size * 1.2;
-  var CUBES_PER_AXIS = 3;
   var gx, gy, gz;
 
   applyColorsToGeometry(geometry);
@@ -131,10 +131,10 @@ var cubes = (function () {
   for (x = 0; x < CUBES_PER_AXIS; x++) {
     gx = indexToG(x);
     
-    for(y = 0; y < CUBES_PER_AXIS; y++) {
+    for (y = 0; y < CUBES_PER_AXIS; y++) {
       gy = indexToG(y);
       
-      for(z = 0; z < CUBES_PER_AXIS; z++) {
+      for (z = 0; z < CUBES_PER_AXIS; z++) {
         gz = indexToG(z);
 
         makeItem(gx, gy, gz);
@@ -187,80 +187,88 @@ Plane.prototype.rotate = function (amount, counter) {
     });
 };
 
-var getPlane = function (x, y, z) {
-  var planeCubes;
-  var rotationAxis;
+var getPlane = function (rotationAxis, g) {
+  var planeCubes = [];
+  var axisCube;
+  var coords = {
+    x: 0,
+    y: 0,
+    z: 0
+  };
+  var planeCubesCount = CUBES_PER_AXIS * CUBES_PER_AXIS;
+  var startingG = indexToG(CUBES_PER_AXIS - 1);
+  var i = 0;
 
-  if (typeof x === 'string') {
-    switch (x) {
-      case 'or':
-        planeCubes = [
-          cubes[1],
-          cubes[4],
-          cubes[7],
-          cubes[10],
-          cubes[13],
-          cubes[16],
-          cubes[19],
-          cubes[22],
-          cubes[25]
-        ];
-        rotationAxis = 'z';
-        break;
+  var gx, gy, gz;
+  var gxMax = CUBES_PER_AXIS;
+  var gyMax = CUBES_PER_AXIS;
+  var gzMax = CUBES_PER_AXIS;
 
-      case 'r':
-        planeCubes = [
-          cubes[2],
-          cubes[5],
-          cubes[8],
-          cubes[11],
-          cubes[14],
-          cubes[17],
-          cubes[20],
-          cubes[23],
-          cubes[26]
-        ];
-        rotationAxis = 'z';
-        break;
+  if (rotationAxis === 'x') {
+    gxMax = 1;
+  } else if (rotationAxis === 'y') {
+    gyMax = 1;
+  } else {
+    gzMax = 1;
+  }
 
-      case 'b':
-        planeCubes = [
-          cubes[18],
-          cubes[19],
-          cubes[20],
-          cubes[21],
-          cubes[22],
-          cubes[23],
-          cubes[24],
-          cubes[25],
-          cubes[26]
-        ];
-        rotationAxis = 'x';
-        break;
+  for (gx = 0; gx < gxMax; gx++) {
+    coords.x = indexToG(gx);
 
-      case 'g':
-        planeCubes = [
-          cubes[9],
-          cubes[10],
-          cubes[11],
-          cubes[12],
-          cubes[13],
-          cubes[14],
-          cubes[15],
-          cubes[16],
-          cubes[17]
-        ];
-        rotationAxis = 'x';
-        break;     
+    for (gy = 0; gy < gyMax; gy++) {
+      coords.y = indexToG(gy);
+
+      for (gz = 0; gz < gzMax; gz++) {
+        coords.z = indexToG(gz);
+        planeCubes.push(getCubeByCoords(coords.x, coords.y, coords.z));
+      }
     }
   }
 
   return new Plane(planeCubes, rotationAxis);
 };
 
+var Range = function (min, max) {
+  this.min = min;
+  this.max = max;
+  this.length = max - min + 1;
+};
+
+/**
+* Divide this range into sub-ranges and return
+* the specified segment.  For range[1 - 12],
+* getSegment(2, 3) -> range[5 - 8]
+* getSegment(2, 4) -> range[4 - 6]
+* @param {Number} segment the nth sub-range
+* @param {Number} divisor how many segments to divide this range in to
+* @return {Range}
+*/
+Range.prototype.getSegment = function (segment, divisor) {
+  var segmentLength = this.length / divisor;
+  var start = this.min + (segmentLength * (segment - 1));
+  var end = start + segmentLength - 1;
+  return new Range(start, end);
+};
+
+/**
+* 
+* @param {Number} gx
+* @param {Number} gy
+* @param {Number} gz
+* @return {Cube}
+*/
+var getCubeByCoords = function (gx, gy, gz) {
+  // The ranges must be queried in the same order they
+  // were laid out in initially.
+  var xRange = (new Range(0, cubes.length - 1)).getSegment(gToIndex(gx) + 1, CUBES_PER_AXIS);
+  var yRange = xRange.getSegment(gToIndex(gy) + 1, CUBES_PER_AXIS);
+  var index = yRange.getSegment(gToIndex(gz) + 1, CUBES_PER_AXIS).min;
+  return cubes[index];
+};
+
 camera.position.z = 5;
-camera.position.x = 5;
-camera.position.y = 5;
+camera.position.x = 3;
+camera.position.y = 3;
 camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 
@@ -275,7 +283,6 @@ function render() {
   camera.applyMatrix(matrix);
 }
 render();
-
 
 
 // ================================================
