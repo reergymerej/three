@@ -62,7 +62,7 @@ var gToIndex = function (g) {
 };
 
 // make the cubes
-var CUBES_PER_AXIS = 3;
+var CUBES_PER_AXIS = 5;
 var cubes = (function () {
   var size = 0.8;
   var geometry = new THREE.BoxGeometry(size, size, size);
@@ -107,9 +107,9 @@ var cubes = (function () {
     var z = gz * spacing;
 
     item.cubeInfo = {
-      gx: gx,
-      gy: gy,
-      gz: gz
+      x: gx,
+      y: gy,
+      z: gz
     };
 
     item.position.x = x;
@@ -149,21 +149,70 @@ var cubes = (function () {
 var Plane = function (cubes, rotationAxis) {
   this.cubes = cubes;
   this.rotationAxis = rotationAxis;
+  this.rotation = {
+    x: 0,
+    y: 0,
+    z: 0
+  };
 };
 
 Plane.prototype.info = function () {
   var cubeInfo = [];
   this.cubes.forEach(function (cube) {
     cubeInfo.push(cubes.indexOf(cube));
+    console.log(cube.cubeInfo.x, cube.cubeInfo.y, cube.cubeInfo.z);
   });
   console.log(cubeInfo);
 };
 
+var quarterTurn = function (coords, axis, counter) {
+  var negate;
+
+  var turned = {};
+
+  if (axis === 'z') {
+    turned = {
+      x: coords.y,
+      y: coords.x,
+      z: coords.z
+    };
+
+    // negate = counter ? 'x' : 'y';
+    negate = counter ? 'y' : 'x';
+
+  } else if (axis === 'x') {
+    turned = {
+      x: coords.x,
+      y: coords.z,
+      z: coords.y
+    };
+
+    // negate = counter ? 'y' : 'z';
+    negate = counter ? 'z' : 'y';
+
+  } else if (axis === 'y') {
+    turned = {
+      x: coords.z,
+      y: coords.y,
+      z: coords.x
+    };
+
+    // negate = counter ? 'z' : 'x';
+    negate = counter ? 'x' : 'z';
+
+  }
+  
+  turned[negate] *= -1;
+
+  return turned;
+};
+
 Plane.prototype.rotate = function (amount, counter) {
     var matrix = new THREE.Matrix4();
+    var updateCubeInfo;
 
     if (amount === undefined) {
-      amount = Math.PI / 4;
+      amount = Math.PI / 2 / 3 / 2;
     }
 
     if (counter) {
@@ -182,44 +231,53 @@ Plane.prototype.rotate = function (amount, counter) {
         break;
     }
 
+    this.rotation[this.rotationAxis] += amount;
+
+    if (Math.abs(this.rotation[this.rotationAxis]) === Math.PI / 2 / 3) {
+      updateCubeInfo = true;
+    }
+
     this.cubes.forEach(function (cube) {
       cube.applyMatrix(matrix);
-    });
+      if (updateCubeInfo) {
+        cube.cubeInfo = quarterTurn(cube.cubeInfo, this.rotationAxis, !counter);
+      }
+    }, this);
+
+    if (updateCubeInfo) {
+      this.rotation = {
+        x: 0,
+        y: 0,
+        z: 0
+      };
+    }
 };
 
 var getPlane = function (rotationAxis, g) {
   var planeCubes = [];
-  var axisCube;
-  var coords = {
-    x: 0,
-    y: 0,
-    z: 0
-  };
-  var planeCubesCount = CUBES_PER_AXIS * CUBES_PER_AXIS;
-  var startingG = indexToG(CUBES_PER_AXIS - 1);
-  var i = 0;
-
+  var coords = {};
   var gx, gy, gz;
-  var gxMax = CUBES_PER_AXIS;
-  var gyMax = CUBES_PER_AXIS;
-  var gzMax = CUBES_PER_AXIS;
 
-  if (rotationAxis === 'x') {
-    gxMax = 1;
-  } else if (rotationAxis === 'y') {
-    gyMax = 1;
-  } else {
-    gzMax = 1;
-  }
+  for (gx = 0; gx < CUBES_PER_AXIS; gx++) {
+    if (rotationAxis === 'x') {
+      coords.x = g;
+    } else {
+      coords.x = indexToG(gx);
+    }
 
-  for (gx = 0; gx < gxMax; gx++) {
-    coords.x = indexToG(gx);
+    for (gy = 0; gy < CUBES_PER_AXIS; gy++) {
+      if (rotationAxis == 'y') {
+        coords.y = g;
+      } else {
+        coords.y = indexToG(gy);
+      }
 
-    for (gy = 0; gy < gyMax; gy++) {
-      coords.y = indexToG(gy);
-
-      for (gz = 0; gz < gzMax; gz++) {
-        coords.z = indexToG(gz);
+      for (gz = 0; gz < CUBES_PER_AXIS; gz++) {
+        if (rotationAxis === 'z') {
+          coords.z = g;
+        } else {
+          coords.z = indexToG(gz);
+        }
         planeCubes.push(getCubeByCoords(coords.x, coords.y, coords.z));
       }
     }
@@ -260,17 +318,30 @@ Range.prototype.getSegment = function (segment, divisor) {
 var getCubeByCoords = function (gx, gy, gz) {
   // The ranges must be queried in the same order they
   // were laid out in initially.
-  var xRange = (new Range(0, cubes.length - 1)).getSegment(gToIndex(gx) + 1, CUBES_PER_AXIS);
-  var yRange = xRange.getSegment(gToIndex(gy) + 1, CUBES_PER_AXIS);
-  var index = yRange.getSegment(gToIndex(gz) + 1, CUBES_PER_AXIS).min;
-  return cubes[index];
+  // This is cool, but for simplicity (because rotating messes up the algorithm)
+  // just loop through the cubes.
+  // var xRange = (new Range(0, cubes.length - 1)).getSegment(gToIndex(gx) + 1, CUBES_PER_AXIS);
+  // var yRange = xRange.getSegment(gToIndex(gy) + 1, CUBES_PER_AXIS);
+  // var index = yRange.getSegment(gToIndex(gz) + 1, CUBES_PER_AXIS).min;
+
+  var theCube;
+  cubes.forEach(function (cube) {
+    if (!theCube) {
+      if (cube.cubeInfo.x === gx &&
+        cube.cubeInfo.y === gy &&
+        cube.cubeInfo.z === gz) {
+        theCube = cube;
+      }
+    }
+  });
+
+  return theCube;
 };
 
 camera.position.z = 5;
 camera.position.x = 3;
 camera.position.y = 3;
 camera.lookAt(new THREE.Vector3(0, 0, 0));
-
 
 function render() {
   requestAnimationFrame(render);
