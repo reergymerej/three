@@ -210,6 +210,8 @@ var quarterTurn = function (coords, axis, counter) {
   return turned;
 };
 
+var turningPlane;
+
 Plane.prototype.rotate = function (amount, counter) {
     var matrix = new THREE.Matrix4();
     var updateCubeInfo;
@@ -236,36 +238,38 @@ Plane.prototype.rotate = function (amount, counter) {
 
     this.rotation[this.rotationAxis] += amount;
 
-    if (Math.abs(this.rotation[this.rotationAxis]) === Math.PI / 2) {
+    if (Math.abs(this.rotation[this.rotationAxis]) === Math.PI / 2 ||
+        Math.abs(this.rotation[this.rotationAxis]) === 0) {
       updateCubeInfo = true;
     }
 
     this.cubes.forEach(function (cube) {
       cube.applyMatrix(matrix);
-      if (updateCubeInfo) {
+      if (updateCubeInfo && Math.abs(this.rotation[this.rotationAxis]) !== 0) {
         cube.cubeInfo = quarterTurn(cube.cubeInfo, this.rotationAxis, counter);
       }
     }, this);
 
     if (updateCubeInfo) {
-      this.rotation = {
-        x: 0,
-        y: 0,
-        z: 0
-      };
+      turningPlane = null;
     }
 };
 
 var getPlane = function (rotationAxis, g) {
   var planeCubes = [];
+  var plane = turningPlane;
 
-  cubes.forEach(function (cube) {
-    if (cube.cubeInfo[rotationAxis] === g) {
-      planeCubes.push(cube);
-    }
-  });
+  if (!plane) {
+    cubes.forEach(function (cube) {
+      if (cube.cubeInfo[rotationAxis] === g) {
+        planeCubes.push(cube);
+      }
+    });
+    
+    plane = turningPlane = new Plane(planeCubes, rotationAxis);
+  }
 
-  return new Plane(planeCubes, rotationAxis);
+  return plane;
 };
 
 var Range = function (min, max) {
@@ -399,6 +403,12 @@ $('body').on('keydown', function (e) {
       break;
     case 68:
       move.D();
+        break;
+    case 70:
+      move.F();
+        break;
+    case 66:
+      move.B();
         break;
   }
 
