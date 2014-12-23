@@ -212,47 +212,66 @@ var quarterTurn = function (coords, axis, counter) {
 
 var turningPlane;
 
+Plane.prototype.applyRotation = function () {
+  var matrix = new THREE.Matrix4();
+  var updateCubeInfo;
+  var amount = this.rotationSpeed;
+
+  switch (this.rotationAxis) {
+    case 'x':
+      matrix.makeRotationX(amount);
+      break;
+    case 'y':
+      matrix.makeRotationY(amount);
+      break;
+    case 'z':
+      matrix.makeRotationZ(amount);
+      break;
+  }
+
+  this.rotation[this.rotationAxis] += amount;
+
+  if ((Math.PI / 2) - Math.abs(this.rotation[this.rotationAxis]) <= this.rotationSpeed) {
+    matrix = this.snapRotation(matrix);
+    updateCubeInfo = true;
+  }
+
+  this.cubes.forEach(function (cube) {
+    cube.applyMatrix(matrix);
+    if (updateCubeInfo && this.rotation[this.rotationAxis]!== 0) {
+      cube.cubeInfo = quarterTurn(cube.cubeInfo, this.rotationAxis, this.counter);
+    }
+  }, this);
+};
+
+Plane.prototype.snapRotation = function (matrix) {
+  var rotation = this.rotation[this.rotationAxis];
+  var distanceLeft;
+  var rotationDirection = this.rotationSpeed < 0 ? -1 : 1;
+  var finalRotation;
+
+  debugger;
+  // closer to 0 or Pi / 2
+  var zeroDist = Math.abs(rotation);
+  var pDist = Math.abs((Math.PI / 2) - Math.abs(rotation));
+
+  finalRotation = Math.min(zeroDist, pDist);
+  distanceLeft = finalRotation - Math.abs(rotation);
+
+  console.log(distanceLeft);
+
+  turningPlane = null;
+
+  return matrix['makeRotation' + this.rotationAxis.toUpperCase()](distanceLeft * rotationDirection);
+};
+
 Plane.prototype.rotate = function (amount, counter) {
-    var matrix = new THREE.Matrix4();
-    var updateCubeInfo;
-
-    if (amount === undefined) {
-      amount = Math.PI / 4;
-    }
-
-    if (counter) {
-      amount *= -1;
-    }
-
-    switch (this.rotationAxis) {
-      case 'x':
-        matrix.makeRotationX(amount);
-        break;
-      case 'y':
-        matrix.makeRotationY(amount);
-        break;
-      case 'z':
-        matrix.makeRotationZ(amount);
-        break;
-    }
-
-    this.rotation[this.rotationAxis] += amount;
-
-    if (Math.abs(this.rotation[this.rotationAxis]) === Math.PI / 2 ||
-        Math.abs(this.rotation[this.rotationAxis]) === 0) {
-      updateCubeInfo = true;
-    }
-
-    this.cubes.forEach(function (cube) {
-      cube.applyMatrix(matrix);
-      if (updateCubeInfo && Math.abs(this.rotation[this.rotationAxis]) !== 0) {
-        cube.cubeInfo = quarterTurn(cube.cubeInfo, this.rotationAxis, counter);
-      }
-    }, this);
-
-    if (updateCubeInfo) {
-      turningPlane = null;
-    }
+  amount = 0.1;
+  if (counter) {
+    amount *=-1;
+  }
+  this.counter = counter;
+  this.rotationSpeed = amount;
 };
 
 var getPlane = function (rotationAxis, g) {
@@ -333,11 +352,16 @@ function render() {
   requestAnimationFrame(render);
   renderer.render(scene, camera);
 
-  m1.makeRotationX(cameraSpeed.x);
-  m2.makeRotationY(cameraSpeed.y);
-  matrix.multiplyMatrices(m1, m2);
+  if (cameraSpeed.x || cameraSpeed.y) {
+    m1.makeRotationX(cameraSpeed.x);
+    m2.makeRotationY(cameraSpeed.y);
+    matrix.multiplyMatrices(m1, m2);
+    camera.applyMatrix(matrix);
+  }
 
-  camera.applyMatrix(matrix);
+  if (turningPlane) {
+    turningPlane.applyRotation();
+  }
 }
 render();
 
