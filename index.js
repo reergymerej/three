@@ -229,11 +229,13 @@ Plane.prototype.applyRotation = function () {
       break;
   }
 
-  this.rotation[this.rotationAxis] += amount;
+  
 
-  if ((Math.PI / 2) - Math.abs(this.rotation[this.rotationAxis]) <= this.rotationSpeed) {
+  if (Math.abs(this.rotation[this.rotationAxis] + amount) >= Math.PI / 2) {
     matrix = this.snapRotation(matrix);
     updateCubeInfo = true;
+  } else {
+    this.rotation[this.rotationAxis] += amount;
   }
 
   this.cubes.forEach(function (cube) {
@@ -246,19 +248,8 @@ Plane.prototype.applyRotation = function () {
 
 Plane.prototype.snapRotation = function (matrix) {
   var rotation = this.rotation[this.rotationAxis];
-  var distanceLeft;
-  var rotationDirection = this.rotationSpeed < 0 ? -1 : 1;
-  var finalRotation;
-
-  debugger;
-  // closer to 0 or Pi / 2
-  var zeroDist = Math.abs(rotation);
-  var pDist = Math.abs((Math.PI / 2) - Math.abs(rotation));
-
-  finalRotation = Math.min(zeroDist, pDist);
-  distanceLeft = finalRotation - Math.abs(rotation);
-
-  console.log(distanceLeft);
+  var distanceLeft = (Math.PI / 2) - Math.abs(rotation);
+  var rotationDirection = rotation < 0 ? -1 : 1;
 
   turningPlane = null;
 
