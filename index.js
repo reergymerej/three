@@ -4,8 +4,9 @@ var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHe
 var matrix = new THREE.Matrix4();
 var renderer = new THREE.WebGLRenderer();
 
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild(renderer.domElement);
+var m1 = new THREE.Matrix4();
+var m2 = new THREE.Matrix4();
+var m3 = new THREE.Matrix4();
 
 var cameraSpeed = {
   rate: 0.01,
@@ -14,12 +15,17 @@ var cameraSpeed = {
   z: 0
 };
 
-var m1 = new THREE.Matrix4();
-var m2 = new THREE.Matrix4();
-var m3 = new THREE.Matrix4();
+camera.position.z = 5;
+camera.position.x = 3;
+camera.position.y = 3;
+camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-var isEven = function (x) {
-  return x % 2 === 0;
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild(renderer.domElement);
+
+var Rubik = function (cubesPerAxis) {
+  this.cubesPerAxis = cubesPerAxis;
+  this.cubes = this.createCubes();
 };
 
 /**
@@ -27,13 +33,13 @@ var isEven = function (x) {
 * @param {Number} i
 * @return {Number}
 */
-var indexToG = function (i) {
+Rubik.prototype.indexToG = function (i) {
   var g = 0;
 
   if (i > 0) {
     g = Math.floor(i / 2);
 
-    if (isEven(i)) {
+    if (i % 2 === 0) {
       g *= -1;
     } else {
       g += 1;
@@ -43,28 +49,8 @@ var indexToG = function (i) {
   return g;
 };
 
-/**
-* Get the index of a number in the G series.
-* @param {Number} g
-* @return {Number}
-*/
-var gToIndex = function (g) {
-  var i = 0;
+Rubik.prototype.createCubes = function () {
 
-  if (g !== 0) {
-    if (g < 0) {
-      i = Math.abs(g + g);
-    } else {
-      i = g * 2 - 1;
-    }
-  }
-
-  return i;
-};
-
-// make the cubes
-
-var cubes = (function () {
   var size = 0.8;
   var geometry = new THREE.BoxGeometry(size, size, size);
 
@@ -128,17 +114,14 @@ var cubes = (function () {
 
   applyColorsToGeometry(geometry);
 
-
   for (x = 0; x < CUBES_PER_AXIS; x++) {
-  // for (x = 0; x < 1; x++) {
-    gx = indexToG(x);
+    gx = this.indexToG(x);
     
     for (y = 0; y < CUBES_PER_AXIS; y++) {
-    // for (y = 0; y < 1; y++) {
-      gy = indexToG(y);
+      gy = this.indexToG(y);
       
       for (z = 0; z < CUBES_PER_AXIS; z++) {
-        gz = indexToG(z);
+        gz = this.indexToG(z);
 
         makeItem(gx, gy, gz);
       }  
@@ -146,8 +129,78 @@ var cubes = (function () {
   }
 
   return cubes;
-}());
+};
 
+Rubik.prototype.getPlane = function (rotationAxis, g) {
+  var planeCubes = [];
+
+  this.cubes.forEach(function (cube) {
+    if (cube.cubeInfo[rotationAxis] === g) {
+      planeCubes.push(cube);
+    }
+  });
+
+  return new Plane(planeCubes, rotationAxis);
+};
+
+/**
+* @param {Number} x
+* @param {Number} y
+* @param {Number} z
+* @return {Cube}
+*/
+Rubik.prototype.getCubeByCoords = function (x, y, z) {
+  var theCube;
+  this.cubes.forEach(function (cube) {
+    if (!theCube) {
+      if (cube.cubeInfo.x === x &&
+        cube.cubeInfo.y === y &&
+        cube.cubeInfo.z === z) {
+        theCube = cube;
+      }
+    }
+  });
+
+  return theCube;
+};
+
+Rubik.prototype.rotatePlane = function (rotationAxis, index, counter) {
+  var plane = this.getPlane(rotationAxis, this.indexToG(index));
+  this.turningPlane = plane;
+  plane.rotate(counter);
+};
+
+Rubik.prototype.render = function () {
+  if (this.turningPlane) {
+    if (!this.turningPlane.applyRotation()) {
+      this.turningPlane = null;
+    }
+  }
+};
+
+Rubik.prototype.R = function () {
+  this.rotatePlane('x', this.indexToG(this.cubesPerAxis - 2), true);
+};
+
+Rubik.prototype.L = function () {
+  this.rotatePlane('x', this.indexToG(this.cubesPerAxis - 1));
+};
+
+Rubik.prototype.U = function () {
+  this.rotatePlane('y', this.indexToG(this.cubesPerAxis - 2), true);
+};
+
+Rubik.prototype.D = function () {
+  this.rotatePlane('y', this.indexToG(this.cubesPerAxis - 1));
+};
+
+Rubik.prototype.F = function () {
+  this.rotatePlane('z', this.indexToG(this.cubesPerAxis - 2), true);
+};
+
+Rubik.prototype.B = function () {
+  this.rotatePlane('z', this.indexToG(this.cubesPerAxis - 1));
+};
 
 var Plane = function (cubes, rotationAxis) {
   this.cubes = cubes;
@@ -168,7 +221,7 @@ Plane.prototype.info = function () {
   console.log(cubeInfo);
 };
 
-var quarterTurn = function (coords, axis, counter) {
+Plane.prototype.quarterTurn = function (coords, axis, counter) {
   var negate;
 
   var turned = {};
@@ -180,7 +233,6 @@ var quarterTurn = function (coords, axis, counter) {
       z: coords.z
     };
 
-    // negate = counter ? 'x' : 'y';
     negate = counter ? 'y' : 'x';
 
   } else if (axis === 'x') {
@@ -190,7 +242,6 @@ var quarterTurn = function (coords, axis, counter) {
       z: coords.y
     };
 
-    // negate = counter ? 'y' : 'z';
     negate = counter ? 'z' : 'y';
 
   } else if (axis === 'y') {
@@ -200,7 +251,6 @@ var quarterTurn = function (coords, axis, counter) {
       z: coords.x
     };
 
-    // negate = counter ? 'z' : 'x';
     negate = counter ? 'x' : 'z';
 
   }
@@ -210,12 +260,11 @@ var quarterTurn = function (coords, axis, counter) {
   return turned;
 };
 
-var turningPlane;
-
 Plane.prototype.applyRotation = function () {
   var matrix = new THREE.Matrix4();
   var updateCubeInfo;
   var amount = this.rotationSpeed;
+  var stillTurning = true;
 
   switch (this.rotationAxis) {
     case 'x':
@@ -229,10 +278,9 @@ Plane.prototype.applyRotation = function () {
       break;
   }
 
-  
-
   if (Math.abs(this.rotation[this.rotationAxis] + amount) >= Math.PI / 2) {
     matrix = this.snapRotation(matrix);
+    stillTurning = false;
     updateCubeInfo = true;
   } else {
     this.rotation[this.rotationAxis] += amount;
@@ -241,9 +289,11 @@ Plane.prototype.applyRotation = function () {
   this.cubes.forEach(function (cube) {
     cube.applyMatrix(matrix);
     if (updateCubeInfo && this.rotation[this.rotationAxis]!== 0) {
-      cube.cubeInfo = quarterTurn(cube.cubeInfo, this.rotationAxis, this.counter);
+      cube.cubeInfo = this.quarterTurn(cube.cubeInfo, this.rotationAxis, this.counter);
     }
   }, this);
+
+  return stillTurning;
 };
 
 Plane.prototype.snapRotation = function (matrix) {
@@ -251,13 +301,11 @@ Plane.prototype.snapRotation = function (matrix) {
   var distanceLeft = (Math.PI / 2) - Math.abs(rotation);
   var rotationDirection = rotation < 0 ? -1 : 1;
 
-  turningPlane = null;
-
   return matrix['makeRotation' + this.rotationAxis.toUpperCase()](distanceLeft * rotationDirection);
 };
 
-Plane.prototype.rotate = function (amount, counter) {
-  amount = 0.1;
+Plane.prototype.rotate = function (counter) {
+  var amount = 0.1;
   if (counter) {
     amount *=-1;
   }
@@ -265,81 +313,9 @@ Plane.prototype.rotate = function (amount, counter) {
   this.rotationSpeed = amount;
 };
 
-var getPlane = function (rotationAxis, g) {
-  var planeCubes = [];
-  var plane = turningPlane;
+var rubik = new Rubik(CUBES_PER_AXIS);
 
-  if (!plane) {
-    cubes.forEach(function (cube) {
-      if (cube.cubeInfo[rotationAxis] === g) {
-        planeCubes.push(cube);
-      }
-    });
-    
-    plane = turningPlane = new Plane(planeCubes, rotationAxis);
-  }
-
-  return plane;
-};
-
-var Range = function (min, max) {
-  this.min = min;
-  this.max = max;
-  this.length = max - min + 1;
-};
-
-/**
-* Divide this range into sub-ranges and return
-* the specified segment.  For range[1 - 12],
-* getSegment(2, 3) -> range[5 - 8]
-* getSegment(2, 4) -> range[4 - 6]
-* @param {Number} segment the nth sub-range
-* @param {Number} divisor how many segments to divide this range in to
-* @return {Range}
-*/
-Range.prototype.getSegment = function (segment, divisor) {
-  var segmentLength = this.length / divisor;
-  var start = this.min + (segmentLength * (segment - 1));
-  var end = start + segmentLength - 1;
-  return new Range(start, end);
-};
-
-/**
-* 
-* @param {Number} gx
-* @param {Number} gy
-* @param {Number} gz
-* @return {Cube}
-*/
-var getCubeByCoords = function (gx, gy, gz) {
-  // The ranges must be queried in the same order they
-  // were laid out in initially.
-  // This is cool, but for simplicity (because rotating messes up the algorithm)
-  // just loop through the cubes.
-  // var xRange = (new Range(0, cubes.length - 1)).getSegment(gToIndex(gx) + 1, CUBES_PER_AXIS);
-  // var yRange = xRange.getSegment(gToIndex(gy) + 1, CUBES_PER_AXIS);
-  // var index = yRange.getSegment(gToIndex(gz) + 1, CUBES_PER_AXIS).min;
-
-  var theCube;
-  cubes.forEach(function (cube) {
-    if (!theCube) {
-      if (cube.cubeInfo.x === gx &&
-        cube.cubeInfo.y === gy &&
-        cube.cubeInfo.z === gz) {
-        theCube = cube;
-      }
-    }
-  });
-
-  return theCube;
-};
-
-camera.position.z = 5;
-camera.position.x = 3;
-camera.position.y = 3;
-camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-function render() {
+(function render () {
   requestAnimationFrame(render);
   renderer.render(scene, camera);
 
@@ -350,46 +326,8 @@ function render() {
     camera.applyMatrix(matrix);
   }
 
-  if (turningPlane) {
-    turningPlane.applyRotation();
-  }
-}
-render();
-
-
-// standard moves
-var move = {
-  R: function () {
-    var plane = getPlane('x', indexToG(CUBES_PER_AXIS - 2));
-    plane.rotate(undefined, true);
-  },
-
-  L: function () {
-    var plane = getPlane('x', indexToG(CUBES_PER_AXIS - 1));
-    plane.rotate();
-  },
-
-  U: function () {
-    var plane = getPlane('y', indexToG(CUBES_PER_AXIS - 2));
-    plane.rotate(undefined, true);
-  },
-
-  D: function () {
-    var plane = getPlane('y', indexToG(CUBES_PER_AXIS - 1));
-    plane.rotate();
-  },
-
-  F: function () {
-    var plane = getPlane('z', indexToG(CUBES_PER_AXIS - 2));
-    plane.rotate(undefined, true);
-  },
-
-  B: function () {
-    var plane = getPlane('z', indexToG(CUBES_PER_AXIS - 1));
-    plane.rotate();
-  },
-};
-
+  rubik.render();
+}());
 
 // ================================================
 $('body').on('keydown', function (e) {
@@ -408,22 +346,22 @@ $('body').on('keydown', function (e) {
       break;
 
     case 82:
-      move.R();
+      rubik.R();
       break;
     case 76:
-      move.L();
+      rubik.L();
       break;
     case 85:
-      move.U();
+      rubik.U();
       break;
     case 68:
-      move.D();
+      rubik.D();
         break;
     case 70:
-      move.F();
+      rubik.F();
         break;
     case 66:
-      move.B();
+      rubik.B();
         break;
   }
 
